@@ -1,1 +1,3 @@
-pub mod okvs;
+mod okvs;
+
+pub use okvs::OKVS;

@@ -4,14 +4,11 @@ version = "0.0.0-development"
 edition = "2021"
 description = "Implementation of the Fuzzy PSI via Oblivious Protocol Routing algorithm based on a paper of David Richardson et al."
 authors = ["Christoph Bühler <christoph.buehler@unisg.ch>"]
-license-file = "LICENSE"
 license = "GPL-3.0"
 
 [dependencies]
 ark-ff = "0.5.0"
 ark-poly = "0.5.0"
-ark-serialize = "0.5.0"
-ark-std = "0.5.0"
 ark-test-curves = { version = "0.5.0", features = ["bls12_381_curve"] }
 rand = "0.8.5"
 rand_chacha = "0.3.1"
