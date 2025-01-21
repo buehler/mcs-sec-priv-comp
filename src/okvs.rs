@@ -250,8 +250,9 @@ mod tests {
         let okvs = OKVS::encode(&data);
 
         let decoded_value = okvs.decode(42);
-        assert!(
-            decoded_value != Fr::ZERO,
+        assert_ne!(
+            decoded_value,
+            Fr::ZERO,
             "Decoded value for an invalid key should not be zero (random value expected)."
         );
     }
