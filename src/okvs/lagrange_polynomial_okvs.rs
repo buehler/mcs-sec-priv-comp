@@ -45,7 +45,7 @@ impl LagrangePolynomialOKVS {
 }
 
 impl OKVS for LagrangePolynomialOKVS {
-    fn decode(&self, key: impl Into<u128>) -> Point {
+    fn decode(&self, key: impl Into<u64>) -> Point {
         let key = key.into();
         let p = Fr::from(key);
         let y = self.0.evaluate(&p);
@@ -67,14 +67,14 @@ mod tests {
     #[test]
     fn test_encode() {
         let data: HashSet<Point> = vec![
-            Point::new(1u128, 2u128),
-            Point::new(2u128, 16u128),
-            Point::new(3u128, 6u128),
-            Point::new(4u128, 28u128),
-            Point::new(5u128, 10u128),
-            Point::new(6u128, 555u128),
-            Point::new(7u128, 7777u128),
-            Point::new(8u128, 42u128),
+            Point::new(1u64, 2u64),
+            Point::new(2u64, 16u64),
+            Point::new(3u64, 6u64),
+            Point::new(4u64, 28u64),
+            Point::new(5u64, 10u64),
+            Point::new(6u64, 555u64),
+            Point::new(7u64, 7777u64),
+            Point::new(8u64, 42u64),
         ]
         .into_iter()
         .collect();
@@ -90,14 +90,14 @@ mod tests {
     #[test]
     fn test_decode_valid_key() {
         let data: HashSet<Point> = vec![
-            Point::new(1u128, 2u128),
-            Point::new(2u128, 16u128),
-            Point::new(3u128, 6u128),
-            Point::new(4u128, 28u128),
-            Point::new(5u128, 10u128),
-            Point::new(6u128, 555u128),
-            Point::new(7u128, 7777u128),
-            Point::new(8u128, 42u128),
+            Point::new(1u64, 2u64),
+            Point::new(2u64, 16u64),
+            Point::new(3u64, 6u64),
+            Point::new(4u64, 28u64),
+            Point::new(5u64, 10u64),
+            Point::new(6u64, 555u64),
+            Point::new(7u64, 7777u64),
+            Point::new(8u64, 42u64),
         ]
         .into_iter()
         .collect();
@@ -115,20 +115,20 @@ mod tests {
     #[test]
     fn test_decode_invalid_key() {
         let data: HashSet<Point> = vec![
-            Point::new(1u128, 2u128),
-            Point::new(2u128, 16u128),
-            Point::new(3u128, 6u128),
-            Point::new(4u128, 28u128),
-            Point::new(5u128, 10u128),
-            Point::new(6u128, 555u128),
-            Point::new(7u128, 7777u128),
-            Point::new(8u128, 42u128),
+            Point::new(1u64, 2u64),
+            Point::new(2u64, 16u64),
+            Point::new(3u64, 6u64),
+            Point::new(4u64, 28u64),
+            Point::new(5u64, 10u64),
+            Point::new(6u64, 555u64),
+            Point::new(7u64, 7777u64),
+            Point::new(8u64, 42u64),
         ]
         .into_iter()
         .collect();
         let okvs = LagrangePolynomialOKVS::encode(&data);
 
-        let invalid_key = 42u128;
+        let invalid_key = 42u64;
         let decoded_point = okvs.decode(invalid_key);
         assert_ne!(
             decoded_point.y, 0,

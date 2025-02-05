@@ -27,6 +27,6 @@ fn main() {
     println!("Execute Fuzzy PSI example");
 
     let distance_threshold = 2;
-    let items_party_a = vec![Point::new(1u128, 4u128)];
-    let items_party_b = vec![Point::new(1u128, 5u128)];
+    let items_party_a = vec![Point::new(1u64, 4u64)];
+    let items_party_b = vec![Point::new(1u64, 5u64)];
 }
