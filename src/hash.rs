@@ -5,24 +5,42 @@ use std::collections::HashSet;
 
 use crate::data::point::Point;
 
-pub(crate) fn create_bins(points: &[Point], delta: impl Into<Fr>) -> HashSet<Point> {
-    let mut bins = HashSet::new();
+// ///
+// pub(crate) fn create_bins(points: &[Point], delta: impl Into<Fr>) -> HashSet<Point> {
+//     let mut bins = HashSet::new();
 
-    let delta = delta.into();
-    for v in points {
-        let bin = create_bin(v, delta);
-        bins.insert(bin);
-    }
+//     let delta = delta.into();
+//     for v in points {
+//         let bin = create_bin(v, delta);
+//         bins.insert(bin);
+//     }
 
-    bins
-}
+//     bins
+// }
 
+/// "H_1": This computes the bins for a list of points.
+/// The computation
+// pub(crate) fn create_near_bins(point: &Point, delta: impl Into<Fr>) -> HashSet<Point> {
+//     let mut bins = HashSet::new();
+
+//     let delta = delta.into();
+//     for v in points {
+//         let bin = create_bin(v, delta);
+//         bins.insert(bin);
+//     }
+
+//     bins
+// }
+
+/// "H_2": This computes the bin for a given point.
+/// This implementation uses the d_infinity metric. As such,
+/// the bin is the floor of the y-coordinate divided by 2 * delta.
 pub(crate) fn create_bin(point: &Point, delta: impl Into<Fr>) -> Point {
     let two: Fr = Fr::from(2);
     let delta = BigUint::from((two * delta.into()).into_bigint());
 
     let y = BigUint::from(point.y.into_bigint());
-    let bin_y = y / delta.clone();
+    let bin_y = y / delta;
 
     Point::new(point.x, Fr::from(bin_y))
 }
