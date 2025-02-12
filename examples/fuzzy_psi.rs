@@ -1,5 +1,3 @@
-use fuzzy_psi::data::point::Point;
-
 /// Execute the Fuzzy PSI (Private Set Intersection) example.
 ///
 /// "Step 1", party A creates bins,
@@ -27,6 +25,11 @@ fn main() {
     println!("Execute Fuzzy PSI example");
 
     let distance_threshold = 2;
-    let items_party_a = vec![Point::new(1u64, 4u64)];
-    let items_party_b = vec![Point::new(1u64, 5u64)];
+    let items_party_a = vec![1u64];
+    let items_party_b = vec![1u64];
+
+    for bin in fuzzy_psi::hash::create_bins(&items_party_a, distance_threshold){
+        // execute prot 1
+
+    }
 }

@@ -1,3 +1,4 @@
 pub mod data;
-mod hash;
-mod okvs;
+pub mod hash;
+pub mod okvs;
+mod sub_protocol;
