@@ -4,7 +4,7 @@ version = "0.0.0-development"
 edition = "2021"
 description = "Implementation of the Fuzzy PSI via Oblivious Protocol Routing algorithm based on a paper of David Richardson et al."
 authors = ["Christoph Bühler <christoph.buehler@unisg.ch>"]
-license = "GPL-3.0"
+license = "AGPL-3.0"
 
 [[bench]]
 name = "okvs"
