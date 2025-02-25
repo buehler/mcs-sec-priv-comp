@@ -4,11 +4,10 @@ use std::collections::HashSet;
 /// The bins are calculated using the d_infinity metric.
 /// Also, all bins are returned that are within the distance of each point.
 /// So, for all points, calculate all bins such that point - delta and point + delta are included.
-pub fn create_bins(points: &[u64], delta: u64) -> HashSet<u64> {
+pub fn create_bins_h1(points: &[u64], delta: u64) -> HashSet<u64> {
     let mut bins = HashSet::new();
-
     for &v in points {
-        for val in (v - delta)..=(v + delta) {
+        for val in (if v > delta { v - delta } else { 0 })..=(v + delta) {
             let bin = create_bin(val, delta);
             bins.insert(bin);
         }
@@ -17,7 +16,20 @@ pub fn create_bins(points: &[u64], delta: u64) -> HashSet<u64> {
     bins
 }
 
-/// "H_2": This computes the bin for a given point.
+/// "H_2": This computes the bin for a list of point.
+/// Essentially, this uses [create_bin] for a given list of points.
+pub fn create_bins_h2(points: &[u64], delta: u64) -> HashSet<u64> {
+    let mut bins = HashSet::new();
+
+    for &v in points {
+        let bin = create_bin(v, delta);
+        bins.insert(bin);
+    }
+
+    bins
+}
+
+/// This computes the bin for a given point.
 /// This implementation uses the d_infinity metric. As such,
 /// the bin is the floor of the y-coordinate divided by 2 * delta.
 pub fn create_bin(val: u64, delta: u64) -> u64 {
@@ -26,17 +38,21 @@ pub fn create_bin(val: u64, delta: u64) -> u64 {
 
 /// "H_1^(-1)": Kind of inversion of H_1. This computes a set of items from a bin.
 /// invert_bin(bin, points, delta) returns a list of points that would be in the bin.
-pub fn invert_bin(bin: u64, points: &[u64], delta: u64) -> HashSet<u64> {
-    let mut items = HashSet::new();
+/// Here lies the assumption: the inversion must not create ambiguous bin <-> point mappings.
+/// Each bin must have a unique point (and not multiple ones).
+pub fn invert_bin(bin: u64, points: &[u64], delta: u64) -> u64 {
+    let mut items = Vec::new();
 
     for &v in points {
         let bin_v = create_bin(v, delta);
         if bin_v == bin {
-            items.insert(v);
+            items.push(v);
         }
     }
 
-    items
+    assert_eq!(items.len(), 1, "More than one item hashes to the same bin");
+
+    items[0]
 }
 
 #[cfg(test)]
@@ -57,7 +73,7 @@ mod tests {
     fn test_create_bins() {
         let points = vec![8u64, 12u64];
         let delta = 2;
-        let bins = create_bins(&points, delta);
+        let bins = create_bins_h1(&points, delta);
         // For 8: (6..=10) gives bins: 6/4=1, 7/4=1, 8/4=2, 9/4=2, 10/4=2 -> {1,2}
         // For 12: (10..=14) gives bins: 10/4=2, 11/4=2, 12/4=3, 13/4=3, 14/4=3 -> {2,3}
         // Merged bins: {1,2,3}
