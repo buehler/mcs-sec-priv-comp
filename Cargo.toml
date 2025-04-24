@@ -11,15 +11,9 @@ license = "AGPL-3.0"
 #harness = false
 
 [dependencies]
-ark-ff = "0.5.0"
-ark-poly = "0.5.0"
-ark-test-curves = { version = "0.5.0", features = ["bls12_381_curve"] }
 blake2 = "0.10.6"
-log = "0.4.25"
-num-bigint = "0.4.6"
 rand = "0.9.0"
 rand_chacha = "0.9.0"
-simple_logger = "5.0.0"
 sp-core = "36.1.0"
 thiserror = "2.0.12"
 
