@@ -6,12 +6,16 @@ description = "Implementation of the Fuzzy PSI via Oblivious Protocol Routing al
 authors = ["Christoph Bühler <christoph.buehler@unisg.ch>"]
 license = "AGPL-3.0"
 
-#[[bench]]
-#name = "okvs"
-#harness = false
+[[bench]]
+name = "okvs"
+harness = false
 
 [dependencies]
+ark-ff = "0.5.0"
+ark-poly = "0.5.0"
+ark-test-curves = { version = "0.5.0", features = ["bls12_381_curve"] }
 blake2 = "0.10.6"
+num-bigint = "0.4.6"
 rand = "0.9.0"
 rand_chacha = "0.9.0"
 sp-core = "36.1.0"

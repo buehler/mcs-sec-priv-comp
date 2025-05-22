@@ -1,0 +1,24 @@
+% !TEX program = pdflatex
+% !BIB program = bibtex
+% !TeX spellcheck = en_US
+% !TeX encoding = UTF-8
+% !TeX root = main.tex
+
+\documentclass[american,11pt,a4paper]{article}
+
+\usepackage{libraries}
+\usepackage{commands}
+\addbibresource{bibliography.bib}
+
+\begin{document}
+
+\input{title.tex}
+
+\input{content.tex}
+
+\printbibliography{}
+
+% \input{admin/declaration-of-authorship.tex}
+% \input{admin/declaration-of-aids.tex}
+
+\end{document}

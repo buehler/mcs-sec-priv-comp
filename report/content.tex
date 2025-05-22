@@ -1,0 +1,137 @@
+\section{Introduction}
+
+Private Set Intersection (PSI) enables two parties, each holding a private dataset, to compute the intersection of their sets without revealing any additional information. While classical PSI protocols focus on exact matches, many practical scenarios involve noisy or imprecise data (e.g., biometric data). To address this, \emph{fuzzy PSI} allows parties to identify approximately matching items, as determined by a public distance metric and threshold. In their 2024 work, \textcite{richardsonFuzzyPSIOblivious2024} introduce a novel framework for fuzzy PSI that is both flexible and efficient.
+
+The central contribution of the paper is a general protocol construction for fuzzy PSI, which allows for arbitrary distance metrics and achieves significantly lower communication complexity compared to existing solutions. Unlike previous protocols that often depend linearly (or worse) on the similarity threshold $\delta$, the proposed protocol maintains only logarithmic dependency. This improvement is especially impactful in high-dimensional or high-threshold scenarios.
+
+A key innovation is the use of \emph{oblivious protocol routing}, inspired by and extending the technique introduced by \textcite{choEfficientConcurrentCovert2016}. The authors generalize the CDJ PSI protocol -- originally based on equality checks -- by replacing the underlying subprotocol with a generic \emph{private proximity test} and incorporating \emph{conditionally-overlapping hash functions}. These hash functions ensure that approximate matches (e.g., vectors within $\ell_1$, $\ell_2$, or $\ell_\infty$ distance) are routed to a common bin, allowing the proximity test to be applied in a secure and scalable way.
+
+The framework leverages \emph{oblivious key-value stores} (OKVS) to encode and decode protocol messages tied to these bins, preserving privacy while supporting efficient polynomial interpolation. Additionally, the construction ensures cryptographic security in the semi-honest model and supports symmetric-key operations exclusively after an initial setup, further enhancing performance.
+
+\textcite{richardsonFuzzyPSIOblivious2024} instantiate their framework for three distance metrics: $\ell_1$, $\ell_2$, and $\ell_\infty$. They use garbled circuits to implement the proximity subprotocols. Notably, for the Euclidean ($\ell_2$) case, they adopt the arithmetic garbling scheme of \textcite{ballGarblingGadgetsBoolean2016}, which optimizes for efficient squaring and comparisons. In terms of concrete performance, their protocol outperforms prior work such as \textcite{vanbaarsenFuzzyPrivateSet2024} and \textcite{gaoEfficientFuzzyPrivate2025} across a range of parameters, particularly when the similarity threshold is moderate to large.
+
+Overall, the work of \textcite{richardsonFuzzyPSIOblivious2024} provides a highly adaptable and communication-efficient framework for fuzzy PSI, with direct applications in privacy-preserving machine learning, biometric deduplication, and other settings involving approximate matching on high-dimensional data.
+
+The rest of this report will introduce the different components of the protocol in detail, before explaining the full protocol. The final conclusion will reflect on the implementation and the results.
+
+\section{Hashing Methods for Approximate Matching}
+
+A central component of the fuzzy PSI protocol by \textcite{richardsonFuzzyPSIOblivious2024} is the use of \emph{conditionally-overlapping hash functions}, designed to assign similar items into at least one common bin. \Cref{lst:h2-hash} shows the implementation of the hash function $H_2$ for the $\ell_\infty$ metric that is used in the example implementation.
+
+\begin{listing}[h]
+	\begin{minted}[linenos, autogobble, frame=lines, framesep=1em]{rust}
+    pub fn create_bin(val: u64, delta: u64) -> u64 {
+        val / (2 * delta)
+    }
+  \end{minted}
+	\caption{Creating a bin for a given value and delta in the $\ell_\infty$ metric.}
+	\label{lst:h2-hash}
+\end{listing}
+
+Formally, for a similarity function $f(x, y) = [d(x, y) \leq \delta]$, a hash pair $(H_1, H_2)$ satisfies conditional overlap if $H_1(x) \cap H_2(y) \neq \emptyset$ whenever $f(x, y) = 1$.
+
+\subsection{Grid-Based Hashing for $\ell_p$ Metrics}
+
+For $\ell_p$ distances, the protocol employs a grid over $\mathbb{Z}_m^d$ with cells of side length $2\delta$. Each party maps their inputs into bins based on this grid. Two strategies are considered:
+
+\begin{itemize}
+	\item \textbf{Asymmetric Binning:} One party (e.g., Alice) uses $H_1$ to map each input to all nearby bins within distance $\delta$, while the other party (e.g., Bob) maps each input to a single bin with $H_2$.
+
+	\item \textbf{Split-Dimensional Binning:} The expansion is divided between the parties across dimensions: $H_3$ explores the first $s$ dimensions, $H_4$ the remaining $d-s$. This reduces bin overhead and balances communication costs.
+\end{itemize}
+
+\subsection{Comparison by Metric}
+
+\begin{description}
+	\item[$\ell_1$:] Efficient with boolean garbling; binning covers neighboring cells based on sum of absolute differences.
+	\item[$\ell_2$:] Requires squaring and summation; benefits from arithmetic garbling (e.g., \cite{ballGarblingGadgetsBoolean2016}) for efficient proximity checks.
+	\item[$\ell_\infty$:] Based on coordinate-wise max difference; simple comparisons suffice, yielding low overhead.
+\end{description}
+
+\subsection{Trade-offs}
+
+Binning affects both protocol efficiency and accuracy. Larger hash ranges increase match likelihood but incur higher communication. The framework allows tuning of binning parameters per metric to optimize for specific application needs.
+
+\section{Oblivious Key-Value Stores (OKVS)}
+
+To securely associate protocol messages with bin identifiers, the protocol employs \emph{Oblivious Key-Value Stores} (OKVS). An OKVS encodes a map from keys (e.g., bin identifiers) to values (e.g., encrypted messages) in such a way that the structure of the keys remains hidden, provided the values are pseudorandom. In the fuzzy PSI protocol, each party encodes their set of bin-to-message pairs into an OKVS, which is then sent to the other party. This enables selective message decoding based on matching bins while ensuring that no additional information about the input sets or the active bins is leaked. OKVS thus serves as the cryptographic backbone for efficient, private message routing in the protocol.
+
+\subsection{Lagrange Polynomial OKVS}
+The first (attempted) implementation in this project is based on Lagrange polynomial interpolation. In this approach, the key-value pairs are interpreted as points $(x, y)$, and a polynomial of degree $n-1$ (where $n$ is the number of pairs) is constructed such that it passes through all these points. Encoding consists of computing the coefficients of this polynomial, while decoding is simply evaluating the polynomial at the desired key. This method is information-theoretically optimal in terms of space, but encoding is computationally expensive for large $n$ due to the cost of polynomial interpolation. It is best suited for small sets or as a theoretical baseline.
+
+\subsection{Near-Optimal (Random Binary Matrix) OKVS}
+The second implementation is a near-optimal OKVS based on random binary matrices, following the "RB-OKVS" construction. Here, the key-value pairs are encoded into a binary matrix using hash functions, and the encoding process involves solving a system of linear equations over a finite field (typically using Gaussian elimination). This approach is much more efficient for large $n$, both in terms of encoding and decoding, and is widely used in practical PSI protocols. However, it is not information-theoretically optimal and may occasionally fail to encode if the random matrix is not full rank (in which case the process is retried).
+
+In this project, the RB-OKVS code was adapted from an older, unmaintained repository. The original code relied on outdated Rust features and compiler flags, which required significant updates to work with modern Rust toolchains. Additionally, the original implementation exhibited issues when encoding small numbers of key-value pairs. As a result, the minimal supported value for $n$ (the number of pairs) is now set to 64 in this implementation. For $n < 64$, the encoding process is likely to fail due to the properties of the underlying random matrix construction.
+
+\subsection{Benchmarking and Comparison}
+To evaluate the practical performance of both OKVS implementations, we benchmarked them using the Criterion framework in Rust. The benchmarks measure both encoding and decoding times for varying set sizes. The Lagrange-based OKVS is significantly slower for encoding as $n$ grows, while the near-optimal RB-OKVS scales much better and is suitable for large-scale applications. The results highlight the trade-off between theoretical optimality and practical efficiency, and motivate the use of RB-OKVS in real-world fuzzy PSI protocols.
+
+\begin{figure}
+	\begin{subfigure}{.5\textwidth}
+		\centering
+		\includegraphics[width=\linewidth]{img/lagrange-enc-64.pdf}
+		\caption{Lagrange polynomial OKVS encoding with $n=64$.}
+		\label{fig:lagrange-enc-64}
+	\end{subfigure}%
+	\begin{subfigure}{.5\textwidth}
+		\centering
+		\includegraphics[width=\linewidth]{img/rbokvs-enc-64.pdf}
+		\caption{RB-OKVS encoding with $n=64$.}
+		\label{fig:rbokvs-enc-64}
+	\end{subfigure}
+	\begin{subfigure}{.5\textwidth}
+		\centering
+		\includegraphics[width=\linewidth]{img/lagrange-dec-64.pdf}
+		\caption{Lagrange polynomial OKVS decoding with $n=64$.}
+	\end{subfigure}%
+	\begin{subfigure}{.5\textwidth}
+		\centering
+		\includegraphics[width=\linewidth]{img/rbokvs-dec-64.pdf}
+		\caption{RB-OKVS decoding with $n=64$.}
+	\end{subfigure}
+	\begin{subfigure}{.5\textwidth}
+		\centering
+		\includegraphics[width=\linewidth]{img/lagrange-enc-512.pdf}
+		\caption{Lagrange polynomial OKVS encoding with $n=512$.}
+		\label{fig:lagrange-enc-512}
+	\end{subfigure}%
+	\begin{subfigure}{.5\textwidth}
+		\centering
+		\includegraphics[width=\linewidth]{img/rbokvs-enc-512.pdf}
+		\caption{RB-OKVS encoding with $n=512$.}
+		\label{fig:rbokvs-enc-512}
+	\end{subfigure}
+	\begin{subfigure}{.5\textwidth}
+		\centering
+		\includegraphics[width=\linewidth]{img/lagrange-dec-512.pdf}
+		\caption{Lagrange polynomial OKVS decoding with $n=512$.}
+	\end{subfigure}%
+	\begin{subfigure}{.5\textwidth}
+		\centering
+		\includegraphics[width=\linewidth]{img/rbokvs-dec-512.pdf}
+		\caption{RB-OKVS decoding with $n=512$.}
+	\end{subfigure}
+	\caption{Encoding and decoding times for the Lagrange polynomial and RB-OKVS implementations with $n=64$ and $n=512$.}
+	\label{fig:okvs-benchmarks}
+\end{figure}
+
+As can be seen in \Cref{fig:okvs-benchmarks}, the RB-OKVS implementation is significantly faster than the Lagrange polynomial implementation for both encoding and decoding. This is expected, as the Lagrange polynomial implementation is much more computationally expensive for large $n$. The mean encoding time for Lagrange polynomial with $n=64$ is 52ms (\Cref{fig:lagrange-enc-64}), while with RB-OKVS it is 24$\mu$s (\Cref{fig:rbokvs-enc-64}). When we hit $n=512$, the Lagrange polynomial implementation takes 25s (\Cref{fig:lagrange-enc-512}), while the RB-OKVS implementation takes 265$\mu$s (\Cref{fig:rbokvs-enc-512}). The decoding time for both implementations is negligible because they are both very fast.
+
+\section{Proximity Subprotocols via Garbled Circuits}
+
+At the core of the fuzzy PSI protocol lies a generic \emph{proximity subprotocol}, executed between parties for each candidate bin match. Its purpose is to determine whether two inputs $x$ and $y$ are ``close enough'' with respect to a public distance metric and threshold. To ensure security and modularity, these subprotocols are instantiated using \emph{Yao's garbled circuits}.
+
+In this setting, the circuit is hardcoded with one party's input and the distance threshold $\delta$, and evaluates whether the other party's input lies within that threshold. The result is revealed only to the initiating party, without disclosing the actual inputs. For different distance metrics, different garbling schemes are employed: arithmetic garbling~\cite{ballGarblingGadgetsBoolean2016} for $\ell_2$ (enabling efficient squaring), and boolean garbling~\cite{zahurTwoHalvesMake2015} for $\ell_1$ and $\ell_\infty$.
+
+These subprotocols are designed to be pseudorandom and leak no information when inputs are far apart. They integrate seamlessly into the main protocol by being encoded into the OKVS structure, enabling secure and efficient pairwise proximity testing at scale.
+
+Garbled circuits, while powerful, introduce significant computational and communication overhead. Each proximity test must be represented as a Boolean or arithmetic circuit, which is then garbled and evaluated using cryptographic protocols such as oblivious transfer. This process involves multiple rounds of encryption and the transmission of large garbled tables, making it much more resource-intensive than simple plaintext computation. In practice, this overhead can become a bottleneck, especially when many proximity tests must be performed in parallel as part of the fuzzy PSI protocol.
+
+In this implementation, actual garbled circuits are not included. The main reason is the lack of a readily available, well-maintained Rust library for the specific proximity circuits required by the protocol. Implementing these circuits from scratch would have required substantial additional engineering effort, which was beyond the scope of this project. As a result, the current implementation uses a non-secure placeholder: instead of securely evaluating the proximity function, it simply shares the actual points between the parties (as can be seen in the main protocol logic). This approach is definitely not secure and is only suitable for testing and benchmarking the rest of the protocol. In a real deployment, this component must be replaced with a proper secure computation protocol, such as Yao's garbled circuits or a similar cryptographic primitive.
+
+\section{Fuzzy PSI}
+% explain the full protocol and how it works
+% explain why the protocol in the given implmementation is not secure (yaos shite)
+
+\section{Reflection}

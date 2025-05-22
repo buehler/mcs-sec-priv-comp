@@ -2,7 +2,7 @@
 //! Because the original authors have deprecated feature flags and old code, we cannot directly
 //! use the dependency. Thus, the code is copied and modified to fit our needs.
 
-use crate::error::Result;
+use super::error::Result;
 use sp_core::U256;
 
 /// For small encoding sizes (i.e., high rate), one should try to fix small
@@ -15,7 +15,7 @@ const BAND_WIDTH: usize = 128; // ((LAMBDA as f64 + 15.21) / 0.2691) as usize = 
 
 /// RB-OKVS, Oblivious Key-Value Stores
 pub struct RbOkvs {
-    columns:    usize,
+    columns: usize,
     band_width: usize,
 }
 
@@ -123,7 +123,7 @@ impl<const N: usize> OkvsK for OkvsKey<N> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct OkvsValue<const N: usize>(pub [u8; N]);
+pub struct OkvsValue<const N: usize = 8>(pub [u8; N]);
 
 impl<const N: usize> OkvsV for OkvsValue<N> {
     fn default() -> Self {
@@ -158,7 +158,7 @@ mod utils {
     use blake2::{Blake2b512, Digest};
     use sp_core::U256;
 
-    use crate::error::{Error, Result};
+    use super::super::error::{Error, Result};
 
     /// Martin Dietzfelbinger and Stefan Walzer. Efficient Gauss Elimination for
     /// Near-Quadratic Matrices with One Short Random Block per Row, with
