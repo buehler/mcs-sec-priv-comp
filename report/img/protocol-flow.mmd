@@ -1,0 +1,18 @@
+sequenceDiagram
+    participant Alice
+    participant Bob
+
+    Alice->>Alice: Hash inputs with H₁ → bins
+    Alice->>Alice: Create PROT₁ msg + state per bin
+    Alice->>Alice: Encode (bin, msg) into OKVS P
+    Alice-->>Bob: Send OKVS P
+
+    Bob->>Bob: Decode msgs from P for own bins (H₂)
+    Bob->>Bob: Run PROT₂ with each item → responses
+    Bob->>Bob: Encode (bin, resp) into OKVS Q
+    Bob-->>Alice: Send OKVS Q
+
+    Alice->>Alice: Decode responses from Q
+    Alice->>Alice: Run PROT₃ with saved state
+    Alice->>Alice: Collect matching items
+    Alice-->>Alice: Output fuzzy PSI result

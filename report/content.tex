@@ -116,7 +116,7 @@ To evaluate the practical performance of both OKVS implementations, we benchmark
 	\label{fig:okvs-benchmarks}
 \end{figure}
 
-As can be seen in \Cref{fig:okvs-benchmarks}, the RB-OKVS implementation is significantly faster than the Lagrange polynomial implementation for both encoding and decoding. This is expected, as the Lagrange polynomial implementation is much more computationally expensive for large $n$. The mean encoding time for Lagrange polynomial with $n=64$ is 52ms (\Cref{fig:lagrange-enc-64}), while with RB-OKVS it is 24$\mu$s (\Cref{fig:rbokvs-enc-64}). When we hit $n=512$, the Lagrange polynomial implementation takes 25s (\Cref{fig:lagrange-enc-512}), while the RB-OKVS implementation takes 265$\mu$s (\Cref{fig:rbokvs-enc-512}). The decoding time for both implementations is negligible because they are both very fast.
+As can be seen in \Cref{fig:okvs-benchmarks}, the RB-OKVS implementation is significantly faster than the Lagrange polynomial implementation for both encoding and decoding. This is expected, as the Lagrange polynomial implementation is much more computationally expensive for large $n$. The mean encoding time for Lagrange polynomial with $n=64$ is 52 ms (\Cref{fig:lagrange-enc-64}), while with RB-OKVS it is 24~$\mu$s (\Cref{fig:rbokvs-enc-64}). When we reach $n=512$, the Lagrange polynomial implementation takes 25 s (\Cref{fig:lagrange-enc-512}), while the RB-OKVS implementation takes 265~$\mu$s (\Cref{fig:rbokvs-enc-512}). The decoding time for both implementations is negligible because they are both very fast.
 
 \section{Proximity Subprotocols via Garbled Circuits}
 
@@ -130,8 +130,71 @@ Garbled circuits, while powerful, introduce significant computational and commun
 
 In this implementation, actual garbled circuits are not included. The main reason is the lack of a readily available, well-maintained Rust library for the specific proximity circuits required by the protocol. Implementing these circuits from scratch would have required substantial additional engineering effort, which was beyond the scope of this project. As a result, the current implementation uses a non-secure placeholder: instead of securely evaluating the proximity function, it simply shares the actual points between the parties (as can be seen in the main protocol logic). This approach is definitely not secure and is only suitable for testing and benchmarking the rest of the protocol. In a real deployment, this component must be replaced with a proper secure computation protocol, such as Yao's garbled circuits or a similar cryptographic primitive.
 
-\section{Fuzzy PSI}
-% explain the full protocol and how it works
-% explain why the protocol in the given implmementation is not secure (yaos shite)
+\section{Fuzzy PSI - Full Protocol Overview}
+
+The fuzzy PSI protocol by \textcite{richardsonFuzzyPSIOblivious2024} is designed as a modular framework that combines the three mentioned key cryptographic components: conditionally-overlapping hashing, oblivious key-value stores, and secure proximity subprotocols. These elements are orchestrated to enable two parties, each with private input sets, to identify approximately matching items without revealing any additional information. This section describes the high-level workflow and internal mechanics of the protocol.
+
+\subsection{Protocol Structure}
+
+The protocol operates under the following core principles:
+
+\begin{itemize}
+	\item \textbf{Hashing and Binning:} Each party maps its inputs into a collection of bins using a conditionally-overlapping hash function. The binning ensures that any pair of inputs $(x, y)$ that are ``close'' under a public distance metric $d$ with threshold $\delta$ will end up in at least one common bin. Depending on the configuration, binning may be asymmetric or split across dimensions to balance communication costs.
+
+	\item \textbf{Subprotocol Execution:} For each active bin, the parties run a secure \emph{proximity subprotocol} to determine whether the items in that bin are within the similarity threshold. These subprotocols are instantiated using Yao's garbled circuits, which allow secure two-party computation of distance checks with minimal leakage.
+
+	\item \textbf{OKVS Encoding:} To avoid revealing which bins are active, each party encodes its messages for each active bin into an \emph{Oblivious Key-Value Store}. The OKVS hides the bin identifiers and ensures that only the relevant proximity test results can be accessed by the other party. This mechanism enables privacy-preserving message routing without interaction per bin.
+\end{itemize}
+
+\subsection{Workflow Description}
+
+\begin{figure}
+	\centering
+	\includegraphics[width=.75\linewidth]{img/protocol-flow.pdf}
+	\caption{Flow of the fuzzy PSI protocol.}
+	\label{fig:protocol-flow}
+\end{figure}
+
+The protocol proceeds as follows (see \Cref{fig:protocol-flow}):
+
+\begin{enumerate}
+	\item \textbf{Local Binning:} Each party computes the set of bins their items map to. Let $A$ be Alice's input set and $H_1$ her hash function, then she computes $H_1(A)$. Similarly, Bob computes $H_2(B)$ using his hash function.
+
+	\item \textbf{Subprotocol Preparation:} For each of Alice's active bins $\beta \in H_1(A)$, she computes a proximity subprotocol message $M_1[\beta]$ and retains internal state $\sigma[\beta]$. These messages encode the result of running \texttt{PROT1} on her input for that bin.
+
+	\item \textbf{OKVS Encoding (Alice):} Alice encodes the bin-to-message mapping $\{(\beta, M_1[\beta])\}$ into an OKVS, producing a polynomial or table $P$. She sends this to Bob.
+
+	\item \textbf{Subprotocol Response (Bob):} For each of his active bins $\beta' \in H_2(B)$, Bob decodes $M_1[\beta']$ from the received OKVS and runs \texttt{PROT2} with his input to obtain $M_2[\beta']$.
+
+	\item \textbf{OKVS Encoding (Bob):} Bob encodes his responses into a second OKVS $Q$ and sends it back to Alice.
+
+	\item \textbf{Subprotocol Finalization (Alice):} For each of her bins $\beta \in H_1(A)$, Alice decodes $M_2[\beta]$ from $Q$ and uses \texttt{PROT3} with her stored $\sigma[\beta]$ to compute the result of the proximity test. If a match is detected, she records the result and associates it with the corresponding bin.
+\end{enumerate}
+
+\subsection{Security and Privacy Guarantees}
+
+Throughout the protocol, privacy is maintained by three layers:
+
+\begin{itemize}
+	\item \textbf{Hashing ensures locality, not exposure:} Items are mapped deterministically to bins, but the actual bin identifiers are concealed within the OKVS.
+
+	\item \textbf{OKVS obfuscates structure:} The use of oblivious encodings hides the set of active bins and prevents inference of item presence or density patterns.
+
+	\item \textbf{Subprotocols protect values:} Yao's garbled circuits ensure that only proximity (not actual distances or values) is learned, and only by the initiating party.
+\end{itemize}
+
+\subsection{Generalization and Efficiency}
+
+The modular nature of the protocol allows it to support a wide range of distance metrics, including $\ell_1$, $\ell_2$, and $\ell_\infty$, by adjusting the hash functions and the instantiation of the proximity subprotocol. The authors demonstrate that for moderate or large values of $\delta$, their protocol achieves best-in-class communication efficiency compared to other fuzzy PSI constructions.
+
+In summary, the protocol achieves fuzzy private set intersection through secure, distance-aware hashing, compact and oblivious message routing via OKVS, and precise approximate matching using optimized proximity subprotocols.
 
 \section{Reflection}
+
+This project was both fun and interesting to work on. Collaborating with Florias was a great experience, as we figured out together how the protocol actually works and how its components fit together. The initial phase of understanding the protocol was intellectually rewarding and provided valuable insights into modern cryptographic constructions for fuzzy private set intersection.
+
+However, during the implementation phase, it became clear that the protocol would be challenging to realize in practice. The first major hurdle was finding a suitable implementation of the Oblivious Key-Value Store. The provided RB-OKVS code was very old and unmaintained, so I initially attempted my own implementation. The Lagrange-based OKVS worked, but it was extremely slow and impractical for larger set sizes. I then switched back to the RB-OKVS, investing significant effort to update and fix the legacy code so it would work with modern Rust and the needs of this project.
+
+Once the OKVS component was functional, I encountered the next major challenge: the protocol's subprotocols rely on Yao's garbled circuits for secure proximity testing. Unfortunately, there was no ready-to-use, well-maintained implementation of these circuits available in Rust. After some trial and error, we decided to proceed with an insecure version of the protocol that simply shares the actual points between parties. While this allowed us to test and benchmark the OKVS components, it means that the overall protocol cannot be securely benchmarked or deployed as intended.
+
+In conclusion, this was a very fun project to work on, but the nature of the required subprotocols makes a full, practical implementation difficult. The performance of the protocol, especially with the current cryptographic building blocks, is generally poor and not yet fit for practical usage. Nonetheless, the project provided valuable experience in cryptographic engineering, protocol design, and the realities of implementing advanced privacy-preserving technologies.
